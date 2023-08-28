@@ -1,0 +1,77 @@
+#include "painlessMesh.h"  // Incluir la librería para la comunicación en malla
+
+#define MESH_PREFIX "MiRedAdHoc"   // Prefijo de la red en malla
+#define MESH_PASSWORD "clave1234"  // Contraseña de la red en malla
+#define MESH_PORT 5555  // Puerto de comunicación
+
+uint32_t nodeNumber;  // Número del nodo en la red
+
+const unsigned long updateInterval = 20000;  // Intervalo de actualización
+
+void receivedCallback(uint32_t from, String &msg);  // Declaración de la función de devolución de llamada
+
+painlessMesh mesh;  // Crear una instancia de la red en malla
+
+unsigned long previousUpdate = 0;  // Variable para el seguimiento del tiempo
+
+const int ledPin = 2;  // Pin para el primer LED (rojo)
+const int greenLedPin = 4;  // Pin para el segundo LED (verde)
+
+void setup() {
+  Serial.begin(115200);  // Inicializar la comunicación serial
+  mesh.setDebugMsgTypes(ERROR);  // Establecer el nivel de depuración de mensajes
+  nodeNumber = 2;  // Número del nodo
+  mesh.init(MESH_PREFIX, MESH_PASSWORD, MESH_PORT);  // Inicializar la red en malla
+  mesh.onReceive(&receivedCallback);  // Establecer la función de devolución de llamada
+  Serial.println("Bienvenido al chat del Nodo " + String(nodeNumber));  // Mostrar mensaje de bienvenida
+  pinMode(ledPin, OUTPUT);  // Configurar el pin del LED rojo como salida
+  pinMode(greenLedPin, OUTPUT);  // Configurar el pin del LED verde como salida
+}
+
+void loop() {
+  mesh.update();  // Actualizar la red en malla
+
+  unsigned long currentMillis = millis();  // Obtener el tiempo actual
+  if (currentMillis - previousUpdate >= updateInterval) {
+    previousUpdate = currentMillis;  // Actualizar el tiempo previo
+    Serial.println("Número de nodos conectados: " + String(mesh.getNodeList().size()));  // Mostrar cantidad de nodos conectados
+  }
+
+  if (Serial.available()) {
+    String message = Serial.readStringUntil('\n');  // Leer el mensaje desde el puerto serial
+    if (message.length() > 0) {
+      String sentMessage = "Mensaje Enviado desde Nodo " + String(nodeNumber) + ": " + message;
+      Serial.println(sentMessage);  // Mostrar el mensaje enviado
+      mesh.sendBroadcast(sentMessage);  // Enviar el mensaje a todos los nodos en la red
+
+      // Controlar los LEDs según el mensaje
+      if (message == "encender led rojo") {
+        digitalWrite(ledPin, HIGH); // Encender el LED rojo
+      } else if (message == "apagar led rojo") {
+        digitalWrite(ledPin, LOW); // Apagar el LED rojo
+      } else if (message == "encender led verde") {
+        digitalWrite(greenLedPin, HIGH); // Encender el LED verde
+      } else if (message == "apagar led verde") {
+        digitalWrite(greenLedPin, LOW); // Apagar el LED verde
+      }
+    }
+  }
+}
+
+void receivedCallback(uint32_t from, String &msg) {
+  Serial.println(msg);  // Mostrar el mensaje recibido
+
+  // Controlar el LED rojo según el mensaje recibido
+  if (msg.indexOf("encender led rojo") != -1) {
+    digitalWrite(ledPin, HIGH); // Encender el LED rojo
+  } else if (msg.indexOf("apagar led rojo") != -1) {
+    digitalWrite(ledPin, LOW); // Apagar el LED rojo
+  }
+
+  // Controlar el LED verde según el mensaje recibido
+  if (msg.indexOf("encender led verde") != -1) {
+    digitalWrite(greenLedPin, HIGH); // Encender el LED verde
+  } else if (msg.indexOf("apagar led verde") != -1) {
+    digitalWrite(greenLedPin, LOW); // Apagar el LED verde
+  }
+}
